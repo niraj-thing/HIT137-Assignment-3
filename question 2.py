@@ -1,230 +1,317 @@
 import pygame
 import random
+import sys
 
-# Initialize Pygame
+# Initialize pygame
 pygame.init()
-
-# Screen dimensions
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 800, 400
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Side Scroller Game")
-
-# Clock and FPS
 clock = pygame.time.Clock()
-FPS = 60
 
 # Colors
 WHITE = (255, 255, 255)
-RED = (255, 0, 0)
+BLACK = (0, 0, 0)
+RED   = (255, 0, 0)
 GREEN = (0, 255, 0)
+YELLOW= (255, 255, 0)
+BLUE  = (0, 100, 255)
 
-# Load assets (placeholder rectangles)
-font = pygame.font.SysFont("Arial", 24)
+# Fonts
+font_name = pygame.font.match_font('arial')
+
+def draw_text(text, size, color, x, y):
+    font = pygame.font.Font(font_name, size)
+    surface = font.render(text, True, color)
+    screen.blit(surface, (x, y))
 
 # Player class
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        self.image = pygame.Surface((50, 60))
+        self.image = pygame.Surface((40, 60))
         self.image.fill(GREEN)
         self.rect = self.image.get_rect()
-        self.rect.x = 100
-        self.rect.y = HEIGHT - 150
-        self.speed_x = 5
-        self.jump_speed = -15
-        self.velocity_y = 0
-        self.is_jumping = False
+        self.rect.bottomleft = (50, HEIGHT - 40)
+        self.speed = 5
+        self.vel_y = 0
+        self.gravity = 0.8
+        self.on_ground = True
         self.health = 100
         self.lives = 3
-        self.score = 0
 
     def update(self, keys):
+        dx = 0
         if keys[pygame.K_LEFT]:
-            self.rect.x -= self.speed_x
+            dx = -self.speed
         if keys[pygame.K_RIGHT]:
-            self.rect.x += self.speed_x
-        if not self.is_jumping and keys[pygame.K_SPACE]:
-            self.velocity_y = self.jump_speed
-            self.is_jumping = True
+            dx = self.speed
 
-        self.velocity_y += 1  # gravity
-        self.rect.y += self.velocity_y
+        if keys[pygame.K_UP] and self.on_ground:
+            self.vel_y = -15
+            self.on_ground = False
 
-        if self.rect.bottom >= HEIGHT:
-            self.rect.bottom = HEIGHT
-            self.is_jumping = False
+        self.vel_y += self.gravity
+        dy = self.vel_y
 
-    def shoot(self):
-        projectile = Projectile(self.rect.right, self.rect.centery)
-        all_sprites.add(projectile)
-        projectiles.add(projectile)
+        self.rect.x += dx
+        self.rect.y += dy
+
+        if self.rect.left < 0:
+            self.rect.left = 0
+        if self.rect.right > WIDTH:
+            self.rect.right = WIDTH
+
+        if self.rect.bottom >= HEIGHT - 40:
+            self.rect.bottom = HEIGHT - 40
+            self.vel_y = 0
+            self.on_ground = True
+
+    def damage(self, amount):
+        self.health -= amount
+        if self.health <= 0:
+            self.lives -= 1
+            self.health = 100
+            if self.lives <= 0:
+                return True
+        return False
 
 # Projectile class
 class Projectile(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
         self.image = pygame.Surface((10, 5))
-        self.image.fill(RED)
+        self.image.fill(YELLOW)
         self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-        self.speed_x = 10
+        self.rect.center = (x, y)
+        self.speed = 10
+        self.damage = 20
 
     def update(self):
-        self.rect.x += self.speed_x
+        self.rect.x += self.speed
         if self.rect.left > WIDTH:
             self.kill()
 
 # Enemy class
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, x, y):
+    def __init__(self, level):
         super().__init__()
         self.image = pygame.Surface((40, 50))
-        self.image.fill((0, 0, 255))
+        self.image.fill(RED)
         self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-        self.health = 50
+        self.rect.bottomleft = (WIDTH + random.randint(50, 150), HEIGHT - 40)
+        self.speed = 3 + level  # Faster with higher level
+        self.health = 40 + (level * 10)
 
     def update(self):
-        self.rect.x -= 2
-        if self.health <= 0:
-            player.score += 10
+        self.rect.x -= self.speed
+        if self.rect.right < 0:
+            self.kill()
+
+# Boss enemy class
+class BossEnemy(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.Surface((120, 120))
+        self.image.fill((150, 0, 0))
+        self.rect = self.image.get_rect()
+        self.rect.bottomleft = (WIDTH + 200, HEIGHT - 40)
+        self.speed = 1.5
+        self.health = 200  # 10 hits * 20 damage
+
+    def update(self):
+        self.rect.x -= self.speed
+        if self.rect.right < 0:
             self.kill()
 
 # Collectible class
 class Collectible(pygame.sprite.Sprite):
-    def __init__(self, x, y, type):
+    def __init__(self, kind):
         super().__init__()
+        self.kind = kind  # 'health' or 'life'
         self.image = pygame.Surface((20, 20))
-        self.image.fill((255, 255, 0))
+        if kind == 'health':
+            self.image.fill(BLUE)  # More visible color
+        else:
+            self.image.fill(YELLOW)
         self.rect = self.image.get_rect()
-        self.rect.x = x
-        self.rect.y = y
-        self.type = type
+        self.rect.x = random.randint(WIDTH + 20, WIDTH + 200)
+        self.rect.y = random.randint(HEIGHT - 150, HEIGHT - 60)
+        self.speed = 3
 
-    def apply_effect(self, player):
-        if self.type == 'health':
-            player.health = min(100, player.health + 20)
-        elif self.type == 'life':
-            player.lives += 1
-        player.score += 5
-        self.kill()
+    def update(self):
+        self.rect.x -= self.speed
+        if self.rect.right < 0:
+            self.kill()
 
-# Level manager
-class Level:
-    def __init__(self, number):
-        self.number = number
-        self.spawn_enemies()
-        self.spawn_collectibles()
-
-    def spawn_enemies(self):
-        for _ in range(self.number * 3):
-            enemy = Enemy(WIDTH + random.randint(100, 500), HEIGHT - 100)
-            all_sprites.add(enemy)
-            enemies.add(enemy)
-
-    def spawn_collectibles(self):
-        for _ in range(2):
-            c = Collectible(WIDTH + random.randint(200, 600), HEIGHT - 100, random.choice(['health', 'life']))
-            all_sprites.add(c)
-            collectibles.add(c)
-
-# Game Over screen
-def game_over_screen():
-    screen.fill(WHITE)
-    game_over_text = font.render("Game Over! Press R to Restart", True, RED)
-    screen.blit(game_over_text, (WIDTH // 2 - 150, HEIGHT // 2))
+def game_over_screen(win=False):
+    screen.fill(BLACK)
+    if win:
+        draw_text("🎉 Congratulations! You defeated the Boss! 🎉", 36, GREEN, WIDTH // 2 - 280, HEIGHT // 2 - 40)
+    else:
+        draw_text("Game Over!", 48, RED, WIDTH // 2 - 100, HEIGHT // 2 - 40)
+    draw_text("Press R to Restart or Q to Quit", 30, WHITE, WIDTH // 2 - 160, HEIGHT // 2 + 20)
     pygame.display.flip()
     waiting = True
     while waiting:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-                waiting = False
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    waiting = False
+                if event.key == pygame.K_q:
+                    pygame.quit()
+                    sys.exit()
 
-# Game groups
-all_sprites = pygame.sprite.Group()
-enemies = pygame.sprite.Group()
-projectiles = pygame.sprite.Group()
-collectibles = pygame.sprite.Group()
+def main_game():
+    all_sprites = pygame.sprite.Group()
+    projectiles = pygame.sprite.Group()
+    enemies = pygame.sprite.Group()
+    collectibles = pygame.sprite.Group()
 
-# Initialize player and level
-player = Player()
-all_sprites.add(player)
-level = Level(1)
-current_level = 1
+    player = Player()
+    all_sprites.add(player)
 
-# Main game loop
-running = True
-while running:
-    clock.tick(FPS)
-    keys = pygame.key.get_pressed()
-    
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_f:
-                player.shoot()
+    score = 0
+    boss_spawned = False
+    boss = None
 
-    # Update
-    player.update(keys)  # Only player needs keys
-    projectiles.update()
-    enemies.update()
-    collectibles.update()
+    enemy_spawn_event = pygame.USEREVENT + 1
+    collectible_spawn_event = pygame.USEREVENT + 2
 
+    enemy_spawn_delay = 1000
+    collectible_spawn_delay = 5000
 
-    for projectile in projectiles:
-        hits = pygame.sprite.spritecollide(projectile, enemies, False)
-        for hit in hits:
-            hit.health -= 25
-            projectile.kill()
+    pygame.time.set_timer(enemy_spawn_event, enemy_spawn_delay)
+    pygame.time.set_timer(collectible_spawn_event, collectible_spawn_delay)
 
-    hits = pygame.sprite.spritecollide(player, collectibles, False)
-    for hit in hits:
-        hit.apply_effect(player)
+    level = 1
+    level_score_thresholds = {1: 5, 2: 10, 3: 15}
+    level_transition_timer = 0
+    show_level_message = True
 
-    hits = pygame.sprite.spritecollide(player, enemies, False)
-    for hit in hits:
-        player.health -= 1
-        if player.health <= 0:
-            player.lives -= 1
-            player.health = 100
-            if player.lives <= 0:
+    running = True
+    while running:
+        clock.tick(60)
+        keys = pygame.key.get_pressed()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == enemy_spawn_event and not boss_spawned and not show_level_message:
+                # Limit enemies on screen for level 3
+                if level == 3:
+                    if len(enemies) < 3:
+                        enemies.add(Enemy(level))
+                        all_sprites.add(enemies)
+                else:
+                    enemies.add(Enemy(level))
+                    all_sprites.add(enemies)
+
+            if event.type == collectible_spawn_event and not show_level_message:
+                kind = random.choice(['health', 'life'])
+                c = Collectible(kind)
+                collectibles.add(c)
+                all_sprites.add(c)
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    bullet = Projectile(player.rect.right, player.rect.centery)
+                    projectiles.add(bullet)
+                    all_sprites.add(bullet)
+
+        player.update(keys)
+        projectiles.update()
+        enemies.update()
+        collectibles.update()
+        if boss_spawned and boss and boss.alive():
+            boss.update()
+
+        # Bullet hits enemy
+        for bullet in projectiles:
+            enemy_hit = pygame.sprite.spritecollideany(bullet, enemies)
+            if enemy_hit:
+                enemy_hit.health -= bullet.damage
+                bullet.kill()
+                if enemy_hit.health <= 0:
+                    enemy_hit.kill()
+                    score += 1
+
+            if boss_spawned and boss and boss.alive():
+                if boss.rect.colliderect(bullet.rect):
+                    boss.health -= bullet.damage
+                    bullet.kill()
+                    if boss.health <= 0:
+                        boss.kill()
+                        game_over_screen(win=True)
+                        return
+
+        # Player collides with enemies
+        enemy_hit = pygame.sprite.spritecollideany(player, enemies)
+        if enemy_hit:
+            if player.damage(20):
                 game_over_screen()
-                # Reset game
-                all_sprites.empty()
-                enemies.empty()
-                projectiles.empty()
-                collectibles.empty()
-                player = Player()
-                all_sprites.add(player)
-                level = Level(1)
-                current_level = 1
+                return
+            enemy_hit.kill()
 
-    # Advance level
-    if not enemies:
-        current_level += 1
-        if current_level > 3:
-            game_over_screen()  # Victory screen could be added
-            running = False
-        else:
-            level = Level(current_level)
+        # Player collides with collectibles
+        collect_hit = pygame.sprite.spritecollideany(player, collectibles)
+        if collect_hit:
+            if collect_hit.kind == 'health':
+                player.health = min(player.health + 30, 100)
+            else:
+                player.lives += 1
+            collect_hit.kill()
 
-    # Draw
-    screen.fill(WHITE)
-    all_sprites.draw(screen)
-    
-    health_text = font.render(f"Health: {player.health}", True, RED)
-    lives_text = font.render(f"Lives: {player.lives}", True, RED)
-    score_text = font.render(f"Score: {player.score}", True, RED)
-    screen.blit(health_text, (10, 10))
-    screen.blit(lives_text, (10, 40))
-    screen.blit(score_text, (10, 70))
+        # Player collides with boss (instant death)
+        if boss_spawned and boss and boss.alive() and player.rect.colliderect(boss.rect):
+            game_over_screen()
+            return
 
-    pygame.display.flip()
+        # Level logic and capping level to max 3
+        if show_level_message and pygame.time.get_ticks() - level_transition_timer > 2000:
+            show_level_message = False
 
-pygame.quit()
+        if not show_level_message and level < 3 and score >= level_score_thresholds[level]:
+            level += 1
+            show_level_message = True
+            level_transition_timer = pygame.time.get_ticks()
+
+            if level == 2:
+                enemy_spawn_delay = 800
+            elif level == 3:
+                enemy_spawn_delay = 1500
+            pygame.time.set_timer(enemy_spawn_event, enemy_spawn_delay)
+
+        # Spawn boss at level 3 after score threshold
+        if level == 3 and score >= level_score_thresholds[3] and not boss_spawned:
+            boss = BossEnemy()
+            all_sprites.add(boss)
+            boss_spawned = True
+            # Stop spawning normal enemies when boss appears
+            pygame.time.set_timer(enemy_spawn_event, 0)
+
+        # Drawing
+        screen.fill(WHITE)
+        all_sprites.draw(screen)
+        draw_text(f"Score: {score}", 22, BLACK, 10, 10)
+        draw_text(f"Health: {player.health}", 22, GREEN, 10, 40)
+        draw_text(f"Lives: {player.lives}", 22, BLUE, 10, 70)
+        draw_text(f"Level: {level}", 22, BLACK, WIDTH - 120, 10)
+
+        if show_level_message:
+            draw_text(f"Level {level}", 48, BLACK, WIDTH // 2 - 60, HEIGHT // 2 - 40)
+
+        # Controls info
+        draw_text("Use arrow keys to move and jump", 20, BLACK, WIDTH // 2 - 140, HEIGHT - 60)
+        draw_text("Press SPACE to shoot", 20, BLACK, WIDTH // 2 - 100, HEIGHT - 30)
+
+        pygame.display.flip()
+
+if __name__ == "__main__":
+    while True:
+        main_game()
