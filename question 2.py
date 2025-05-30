@@ -11,7 +11,6 @@ clock = pygame.time.Clock()
 
 GROUND_LEVEL = HEIGHT - 85
 
-
 # Initialize Pygame and mixer
 pygame.init()
 pygame.mixer.init()
@@ -23,7 +22,6 @@ pygame.mixer.music.play(-1)
 
 shoot_sound = pygame.mixer.Sound("assets/sounds/hit.mp3")
 shoot_sound.set_volume(0.3)
-
 
 # Colors
 WHITE = (255, 255, 255)
@@ -40,7 +38,6 @@ enemy_img = pygame.image.load("assets/images/enemy.png").convert_alpha()
 boss_img = pygame.image.load("assets/images/boss.png").convert_alpha()
 bullet_img = pygame.image.load("assets/images/bullet.png").convert_alpha()
 bullet_img = pygame.transform.scale(bullet_img, (20, 10))
-
 
 # Fonts
 font_name = pygame.font.match_font('arial')
@@ -129,13 +126,10 @@ class Enemy(pygame.sprite.Sprite):
         self.speed = random.randint(2 + level, 4 + level)
         self.health = 1  # Regular enemies take 1 hit to die
 
-
-
     def update(self):
         self.rect.x -= self.speed
         if self.rect.right < 0:
             self.kill()
-
 
 # Boss enemy class
 class BossEnemy(pygame.sprite.Sprite):
@@ -145,15 +139,11 @@ class BossEnemy(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = WIDTH + 10
         self.rect.y = GROUND_LEVEL - 100
-
-
         self.speed = 2
         self.health = 20  # Boss takes 10 hits
 
-
     def update(self):
         self.rect.x -= self.speed
-
 
 # Collectible class
 class Collectible(pygame.sprite.Sprite):
@@ -168,8 +158,6 @@ class Collectible(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = random.randint(WIDTH + 20, WIDTH + 200)
         self.rect.y = random.randint(HEIGHT - 200, HEIGHT - 120)
-
-
         self.speed = 3
 
     def update(self):
@@ -179,7 +167,6 @@ class Collectible(pygame.sprite.Sprite):
 
 def game_over_screen(win=False):
     screen.fill(BLACK)
-    
     if win:
         font = pygame.font.Font(font_name, 36)
         text_surface = font.render("Congratulations! You defeated the Boss!", True, GREEN)
@@ -195,9 +182,7 @@ def game_over_screen(win=False):
     instruction_surface = font.render("Press R to Restart or Q to Quit", True, WHITE)
     instruction_rect = instruction_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 20))
     screen.blit(instruction_surface, instruction_rect)
-
     pygame.display.flip()
-    
     waiting = True
     while waiting:
         for event in pygame.event.get():
@@ -216,17 +201,13 @@ def main_game():
     projectiles = pygame.sprite.Group()
     enemies = pygame.sprite.Group()
     collectibles = pygame.sprite.Group()
-
     player = Player()
     all_sprites.add(player)
-
     score = 0
     boss_spawned = False
     boss = None
-
     enemy_spawn_event = pygame.USEREVENT + 1
     collectible_spawn_event = pygame.USEREVENT + 2
-
     enemy_spawn_delay = 1000
     collectible_spawn_delay = 5000
 
@@ -242,12 +223,10 @@ def main_game():
     while running:
         clock.tick(60)
         keys = pygame.key.get_pressed()
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-
             if event.type == enemy_spawn_event and not boss_spawned and not show_level_message:
                 if level == 3:
                     if len(enemies) < 3:
@@ -270,16 +249,13 @@ def main_game():
                     all_sprites.add(bullet)
                     shoot_sound.play()
 
-
         player.update(keys)
         projectiles.update()
         enemies.update()
         collectibles.update()
         if boss_spawned and boss and boss.alive():
             boss.update()
-
         for bullet in projectiles.copy():
-
             enemy_hit = pygame.sprite.spritecollideany(bullet, enemies)
             if enemy_hit:
                 enemy_hit.health -= bullet.damage
@@ -288,7 +264,6 @@ def main_game():
                     enemy_hit.kill()
                     score += 1
                 continue
-
             if boss_spawned and boss and boss.alive():
                 if boss.rect.colliderect(bullet.rect):
                     boss.health -= bullet.damage
@@ -298,7 +273,6 @@ def main_game():
                         boss.kill()
                         game_over_screen(win=True)
                         return
-                    
         enemy_hit = pygame.sprite.spritecollideany(player, enemies)
         if enemy_hit:
             if player.damage(20):
@@ -347,11 +321,8 @@ def main_game():
 
         if show_level_message:
             draw_text(f"Level {level}", 48, BLACK, WIDTH // 2 - 60, HEIGHT // 2 - 40)
-
         draw_text("Use arrow keys to move and jump", 20, WHITE, WIDTH // 2 - 140, HEIGHT - 60)
         draw_text("Press SPACE to shoot", 20, WHITE, WIDTH // 2 - 100, HEIGHT - 30)
-
-
         pygame.display.flip()
 
 if __name__ == "__main__":
