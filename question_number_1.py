@@ -1,7 +1,7 @@
-"""Crop Your Image Application to upload, crop, rotate, flip and save images."""
+# Crop Your Image Application -> Upload, crop, rotate, flip and save pictures
 
 import tkinter as tk
-import ttkbootstrap as ttk # bootstrap to make better UI of the application
+import ttkbootstrap as ttk # bootstrap for better UI display
 from ttkbootstrap.constants import *
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
@@ -16,20 +16,20 @@ class CropYourImage:
         # Initialization for the image and canvas objects
         self.original_picture = None
         self.background_orginal = None
-        self.resized_picture = None #display resized image 
+        self.resized_picture = None #displays resized image 
         self.cropped_pil_pic = None # PIL image of the cropped image
         self.current_resized_cropped = None
         
-        # Canvas object IDs for image, cropping rectangle and cropped images
+        # Object IDs for original picture, cropped rectangle and pictures
         self.canvas_pic_id = None
         self.rectangle_pic_id = None
         self.cropped_pic_id = None
 
-        # Coordinates of cropped rectangle
+        # Coordinates of cropped rectangle borders
         self.crop_start_x = 0
         self.crop_start_y = 0
 
-        # Display dimensions and scaling of the picture
+        # Display dimensions and scales of the picture
         self.scale_ratio = 0
         self.display_pic_x = 0
         self.display_pic_y = 0
@@ -37,9 +37,9 @@ class CropYourImage:
         self.display_pic_height = 0
 
         
-        self.reference_picture = [] # Keep references of pictures alive to avoid garbage collection
+        self.reference_picture = [] # Keep references of pictures to remove garbage collection
         self.app_background() # Load background picture of the application
-        self.app_gui() # Set up GUI components of the app
+        self.app_gui() # Sets up GUI components for the app
 
     # Load background of the application
     def app_background(self):
@@ -50,7 +50,7 @@ class CropYourImage:
 
     # Create all GUI components 
     def app_gui(self):
-        # Label of application
+        # Labels of application
         label_of_app = ttk.Label(
             self.root,
             text="Welcome to Crop Your Image App",
@@ -65,7 +65,7 @@ class CropYourImage:
         main_frame = tk.Frame(self.root, bg="#F0F2F5")
         main_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=(15, 0))
 
-        #Frame to show the image display area
+        #Frame to show the image displayed area
         canvas_frame = tk.Frame(main_frame, bg="white", bd=2, relief=tk.RIDGE)
         canvas_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -122,12 +122,12 @@ class CropYourImage:
         flip_button = ttk.Button(control_frame, text="Flip H", bootstyle="info-outline", width=8, command=self.flip_picture)
         flip_button.pack(side=tk.LEFT, padx=5)
 
-        # Label for the Slider and display value
+        # Show label for the Slider and display resized value
         self.resize_label_value = tk.StringVar(value="Resize Cropped Image:")
         resize_label = ttk.Label(control_frame, textvariable=self.resize_label_value, font=('Helvetica', 10))
         resize_label.pack(side=tk.LEFT, padx=(15, 5), pady=10)
 
-        # Label for displaying current slider value
+        # Show label for displaying current slider value
         self.slider_value = ttk.Label(control_frame, font=('Helvetica', 10))
         self.slider_value.pack(side=tk.LEFT, padx=(0, 10), pady=10)
 
@@ -147,11 +147,11 @@ class CropYourImage:
 
         # Bindings
         self.root.bind("<Configure>", self.update_displayed_picture) # Bind window resize to update picture display
-        self.canvas.bind("<ButtonPress-1>", self.start_crop) # Start crop while pressing mouse
-        self.canvas.bind("<B1-Motion>", self.update_crop) # Update cropped rectangle when dragging
+        self.canvas.bind("<ButtonPress-1>", self.start_crop) # Starts cropping while pressing mouse
+        self.canvas.bind("<B1-Motion>", self.update_crop) # Updates cropped rectangle when dragging
         self.canvas.bind("<ButtonRelease-1>", self.end_crop) # Finalize crop while releasing mouse
 
-    # To upload the picture and display in screen
+    # To upload the picture and display in the main screen
     def upload_picture(self):
         path = filedialog.askopenfilename(filetypes=[("Image files", "*.png;*.jpg;*.jpeg")])
         if path:
@@ -194,11 +194,11 @@ class CropYourImage:
             self.canvas.image = img_tk 
             self.canvas_pic_id = self.canvas.create_image(10, 10, anchor=tk.NW, image=img_tk)
 
-            # Save displayed image position and size for cropping
+            # Saves displayed image position and size for cropping
             self.display_pic_x, self.display_pic_y = 10, 10
             self.display_pic_width, self.display_pic_height = self.resized_picture.size
 
-    #Start the crop rectangle when mouse is pressed on the image
+    # Displays the crop rectangle when mouse is pressed on the picture
     def start_crop(self, event):
         self.crop_start_x = event.x
         self.crop_start_y = event.y 
@@ -223,7 +223,7 @@ class CropYourImage:
     def end_crop(self, event):
         if not self.rectangle_pic_id:
             return
-         # Clamp coordinates inside displayed picture area
+         # Gives coordinates of displayed picture area
         x = min(max(event.x, self.display_pic_x), self.display_pic_x + self.display_pic_width)
         y = min(max(event.y, self.display_pic_y), self.display_pic_y + self.display_pic_height)
 
@@ -243,7 +243,7 @@ class CropYourImage:
         x1_org = max(0, min(int(cropped_x1 * self.scale_ratio), self.original_picture.width))
         y1_org = max(0, min(int(cropped_y1 * self.scale_ratio), self.original_picture.height))
 
-        # Crops only if area is valid
+        # Crops the picture only if dragged area is valid
         if x1_org > x0_org and y1_org > y0_org:
             self.cropped_pil_pic = self.original_picture.crop((x0_org, y0_org, x1_org, y1_org))
             self.resize_slider.set(100)
@@ -251,7 +251,7 @@ class CropYourImage:
             self.display_cropped_picture(self.cropped_pil_pic)
             self.download_button.config(state=tk.NORMAL)
 
-        # Remove cropped rectangle from canvas
+        # Removes cropped rectangle
         self.canvas.delete(self.rectangle_pic_id)
         self.rectangle_pic_id = None
 
@@ -264,7 +264,7 @@ class CropYourImage:
         canvas_width = self.canvas.winfo_width()
         canvas_height = self.canvas.winfo_height()
 
-        # Put maximum size of right half of frame
+        # Put maximum size of right half of the screen
         max_width = (canvas_width // 2) - 2 * padding
         max_height = canvas_height - 2 * padding
 
@@ -274,7 +274,7 @@ class CropYourImage:
         w = max(1, int(cropped_img.width * scale_percent / 100))
         h = max(1, int(cropped_img.height * scale_percent / 100))
 
-        # Make cropped picture fit to maximum available size
+        # Fits cropped picture to maximum available size
         w = min(w, max_width)
         h = min(h, max_height)
 
@@ -283,16 +283,16 @@ class CropYourImage:
 
         img_tk = ImageTk.PhotoImage(resized_crop)
 
-        # Prevent garbage collection of pictures
+        # Prevents garbage collection of pictures
         self.reference_picture.clear()
         self.reference_picture.append(img_tk)
         
-        # Fit picture on right half with padding
+        # Fit picture on right half
         x = canvas_width // 2 + padding
         y = padding
         self.cropped_pic_id = self.canvas.create_image(x, y, anchor=tk.NW, image=img_tk)
 
-    # Move slider to resize  the cropped image
+    # Move slider to resize the cropped picture
     def move_slider(self, val):
         percent = int(float(val))
         self.slider_value.config(text=f"{percent}%")
