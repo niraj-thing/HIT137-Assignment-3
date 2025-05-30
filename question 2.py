@@ -6,10 +6,10 @@ import sys
 pygame.init()
 WIDTH, HEIGHT = 800, 400
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Side Scroller Game")
+pygame.display.set_caption("The Mario of Darwin")
 clock = pygame.time.Clock()
 
-GROUND_LEVEL = HEIGHT - 85  # instead of HEIGHT - 40
+GROUND_LEVEL = HEIGHT - 85
 
 
 # Initialize Pygame and mixer
@@ -17,9 +17,13 @@ pygame.init()
 pygame.mixer.init()
 
 # Load and play background music
-pygame.mixer.music.load("assets/sounds/background_music.mp3")  # Make sure this file is in the same folder as your script
-pygame.mixer.music.set_volume(0.5)  # Optional: volume (0.0 to 1.0)
-pygame.mixer.music.play(-1)  # -1 means loop indefinitely
+pygame.mixer.music.load("assets/sounds/background_music.mp3")
+pygame.mixer.music.set_volume(0.5)
+pygame.mixer.music.play(-1) 
+
+shoot_sound = pygame.mixer.Sound("assets/sounds/hit.mp3")
+shoot_sound.set_volume(0.3)
+
 
 # Colors
 WHITE = (255, 255, 255)
@@ -35,7 +39,7 @@ player_img = pygame.image.load("assets/images/player.png").convert_alpha()
 enemy_img = pygame.image.load("assets/images/enemy.png").convert_alpha()
 boss_img = pygame.image.load("assets/images/boss.png").convert_alpha()
 bullet_img = pygame.image.load("assets/images/bullet.png").convert_alpha()
-bullet_img = pygame.transform.scale(bullet_img, (20, 10))  # Resize as needed
+bullet_img = pygame.transform.scale(bullet_img, (20, 10))
 
 
 # Fonts
@@ -106,7 +110,7 @@ class Projectile(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
         self.speed = 10
-        self.damage = 20
+        self.damage = 2
 
     def update(self):
         self.rect.x += self.speed
@@ -144,7 +148,7 @@ class BossEnemy(pygame.sprite.Sprite):
 
 
         self.speed = 2
-        self.health = 10  # Boss takes 10 hits
+        self.health = 20  # Boss takes 10 hits
 
 
     def update(self):
@@ -155,15 +159,17 @@ class BossEnemy(pygame.sprite.Sprite):
 class Collectible(pygame.sprite.Sprite):
     def __init__(self, kind):
         super().__init__()
-        self.kind = kind  # 'health' or 'life'
+        self.kind = kind
         self.image = pygame.Surface((20, 20))
         if kind == 'health':
-            self.image.fill(BLUE)  # More visible color
+            self.image.fill(BLUE)
         else:
             self.image.fill(YELLOW)
         self.rect = self.image.get_rect()
         self.rect.x = random.randint(WIDTH + 20, WIDTH + 200)
-        self.rect.y = random.randint(HEIGHT - 150, HEIGHT - 60)
+        self.rect.y = random.randint(HEIGHT - 200, HEIGHT - 120)
+
+
         self.speed = 3
 
     def update(self):
@@ -173,12 +179,25 @@ class Collectible(pygame.sprite.Sprite):
 
 def game_over_screen(win=False):
     screen.fill(BLACK)
+    
     if win:
-        draw_text("🎉 Congratulations! You defeated the Boss! 🎉", 36, GREEN, WIDTH // 2 - 280, HEIGHT // 2 - 40)
+        font = pygame.font.Font(font_name, 36)
+        text_surface = font.render("Congratulations! You defeated the Boss!", True, GREEN)
+        text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 40))
+        screen.blit(text_surface, text_rect)
     else:
-        draw_text("Game Over!", 48, RED, WIDTH // 2 - 100, HEIGHT // 2 - 40)
-    draw_text("Press R to Restart or Q to Quit", 30, WHITE, WIDTH // 2 - 160, HEIGHT // 2 + 20)
+        font = pygame.font.Font(font_name, 48)
+        text_surface = font.render("Game Over!", True, RED)
+        text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 40))
+        screen.blit(text_surface, text_rect)
+
+    font = pygame.font.Font(font_name, 30)
+    instruction_surface = font.render("Press R to Restart or Q to Quit", True, WHITE)
+    instruction_rect = instruction_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 20))
+    screen.blit(instruction_surface, instruction_rect)
+
     pygame.display.flip()
+    
     waiting = True
     while waiting:
         for event in pygame.event.get():
@@ -230,7 +249,6 @@ def main_game():
                 sys.exit()
 
             if event.type == enemy_spawn_event and not boss_spawned and not show_level_message:
-                # Limit enemies on screen for level 3
                 if level == 3:
                     if len(enemies) < 3:
                         enemies.add(Enemy(level))
@@ -246,10 +264,12 @@ def main_game():
                 all_sprites.add(c)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    bullet_y = player.rect.top + 20  # Adjust this value to align with the player's hand or gun
+                    bullet_y = player.rect.top + 20
                     bullet = Projectile(player.rect.right, bullet_y)
                     projectiles.add(bullet)
                     all_sprites.add(bullet)
+                    shoot_sound.play()
+
 
         player.update(keys)
         projectiles.update()
@@ -258,9 +278,8 @@ def main_game():
         if boss_spawned and boss and boss.alive():
             boss.update()
 
-        # Bullet hits enemy or boss
         for bullet in projectiles.copy():
-            # First check regular enemies
+
             enemy_hit = pygame.sprite.spritecollideany(bullet, enemies)
             if enemy_hit:
                 enemy_hit.health -= bullet.damage
@@ -268,21 +287,18 @@ def main_game():
                 if enemy_hit.health <= 0:
                     enemy_hit.kill()
                     score += 1
-                continue  # Skip checking boss if bullet already hit enemy
+                continue
 
-            # Then check boss
             if boss_spawned and boss and boss.alive():
                 if boss.rect.colliderect(bullet.rect):
                     boss.health -= bullet.damage
                     bullet.kill()
-                    print("Boss health:", boss.health)  # For debugging
+                    print(f"Boss health now: {boss.health}") 
                     if boss.health <= 0:
                         boss.kill()
                         game_over_screen(win=True)
                         return
-
-
-        # Player collides with enemies
+                    
         enemy_hit = pygame.sprite.spritecollideany(player, enemies)
         if enemy_hit:
             if player.damage(20):
@@ -290,7 +306,6 @@ def main_game():
                 return
             enemy_hit.kill()
 
-        # Player collides with collectibles
         collect_hit = pygame.sprite.spritecollideany(player, collectibles)
         if collect_hit:
             if collect_hit.kind == 'health':
@@ -299,12 +314,10 @@ def main_game():
                 player.lives += 1
             collect_hit.kill()
 
-        # Player collides with boss (instant death)
         if boss_spawned and boss and boss.alive() and player.rect.colliderect(boss.rect):
             game_over_screen()
             return
 
-        # Level logic and capping level to max 3
         if show_level_message and pygame.time.get_ticks() - level_transition_timer > 2000:
             show_level_message = False
 
@@ -319,15 +332,12 @@ def main_game():
                 enemy_spawn_delay = 1500
             pygame.time.set_timer(enemy_spawn_event, enemy_spawn_delay)
 
-        # Spawn boss at level 3 after score threshold
         if level == 3 and score >= level_score_thresholds[3] and not boss_spawned:
             boss = BossEnemy()
             all_sprites.add(boss)
             boss_spawned = True
-            # Stop spawning normal enemies when boss appears
             pygame.time.set_timer(enemy_spawn_event, 0)
 
-        # Drawing
         screen.blit(background_img, (0, 0))
         all_sprites.draw(screen)
         draw_text(f"Score: {score}", 22, BLACK, 10, 10)
@@ -338,7 +348,6 @@ def main_game():
         if show_level_message:
             draw_text(f"Level {level}", 48, BLACK, WIDTH // 2 - 60, HEIGHT // 2 - 40)
 
-        # Controls info
         draw_text("Use arrow keys to move and jump", 20, WHITE, WIDTH // 2 - 140, HEIGHT - 60)
         draw_text("Press SPACE to shoot", 20, WHITE, WIDTH // 2 - 100, HEIGHT - 30)
 
