@@ -9,6 +9,18 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Side Scroller Game")
 clock = pygame.time.Clock()
 
+GROUND_LEVEL = HEIGHT - 85  # instead of HEIGHT - 40
+
+
+# Initialize Pygame and mixer
+pygame.init()
+pygame.mixer.init()
+
+# Load and play background music
+pygame.mixer.music.load("assets/sounds/background_music.mp3")  # Make sure this file is in the same folder as your script
+pygame.mixer.music.set_volume(0.5)  # Optional: volume (0.0 to 1.0)
+pygame.mixer.music.play(-1)  # -1 means loop indefinitely
+
 # Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -16,6 +28,15 @@ RED   = (255, 0, 0)
 GREEN = (0, 255, 0)
 YELLOW= (255, 255, 0)
 BLUE  = (0, 100, 255)
+
+background_img = pygame.image.load("assets/images/background.jpg").convert()
+background_img = pygame.transform.scale(background_img, (WIDTH, HEIGHT))
+player_img = pygame.image.load("assets/images/player.png").convert_alpha()
+enemy_img = pygame.image.load("assets/images/enemy.png").convert_alpha()
+boss_img = pygame.image.load("assets/images/boss.png").convert_alpha()
+bullet_img = pygame.image.load("assets/images/bullet.png").convert_alpha()
+bullet_img = pygame.transform.scale(bullet_img, (20, 10))  # Resize as needed
+
 
 # Fonts
 font_name = pygame.font.match_font('arial')
@@ -29,10 +50,9 @@ def draw_text(text, size, color, x, y):
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        self.image = pygame.Surface((40, 60))
-        self.image.fill(GREEN)
+        self.image = pygame.transform.scale(player_img, (50, 50))
         self.rect = self.image.get_rect()
-        self.rect.bottomleft = (50, HEIGHT - 40)
+        self.rect.center = (100, HEIGHT - 300)
         self.speed = 5
         self.vel_y = 0
         self.gravity = 0.8
@@ -62,8 +82,9 @@ class Player(pygame.sprite.Sprite):
         if self.rect.right > WIDTH:
             self.rect.right = WIDTH
 
-        if self.rect.bottom >= HEIGHT - 40:
-            self.rect.bottom = HEIGHT - 40
+        if self.rect.bottom >= GROUND_LEVEL:
+            self.rect.bottom = GROUND_LEVEL
+
             self.vel_y = 0
             self.on_ground = True
 
@@ -80,8 +101,8 @@ class Player(pygame.sprite.Sprite):
 class Projectile(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
-        self.image = pygame.Surface((10, 5))
-        self.image.fill(YELLOW)
+        self.image = bullet_img
+
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
         self.speed = 10
@@ -94,35 +115,41 @@ class Projectile(pygame.sprite.Sprite):
 
 # Enemy class
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, level):
+    def __init__(self, level=1):
         super().__init__()
-        self.image = pygame.Surface((40, 50))
-        self.image.fill(RED)
+        self.image = pygame.transform.scale(enemy_img, (50, 50))
         self.rect = self.image.get_rect()
-        self.rect.bottomleft = (WIDTH + random.randint(50, 150), HEIGHT - 40)
-        self.speed = 3 + level  # Faster with higher level
-        self.health = 40 + (level * 10)
+        self.rect.x = WIDTH + 10
+        self.rect.y = GROUND_LEVEL - 50
+        
+        self.speed = random.randint(2 + level, 4 + level)
+        self.health = 1  # Regular enemies take 1 hit to die
+
+
 
     def update(self):
         self.rect.x -= self.speed
         if self.rect.right < 0:
             self.kill()
+
 
 # Boss enemy class
 class BossEnemy(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        self.image = pygame.Surface((120, 120))
-        self.image.fill((150, 0, 0))
+        self.image = pygame.transform.scale(boss_img, (100, 100))
         self.rect = self.image.get_rect()
-        self.rect.bottomleft = (WIDTH + 200, HEIGHT - 40)
-        self.speed = 1.5
-        self.health = 200  # 10 hits * 20 damage
+        self.rect.x = WIDTH + 10
+        self.rect.y = GROUND_LEVEL - 100
+
+
+        self.speed = 2
+        self.health = 10  # Boss takes 10 hits
+
 
     def update(self):
         self.rect.x -= self.speed
-        if self.rect.right < 0:
-            self.kill()
+
 
 # Collectible class
 class Collectible(pygame.sprite.Sprite):
@@ -217,10 +244,10 @@ def main_game():
                 c = Collectible(kind)
                 collectibles.add(c)
                 all_sprites.add(c)
-
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    bullet = Projectile(player.rect.right, player.rect.centery)
+                    bullet_y = player.rect.top + 20  # Adjust this value to align with the player's hand or gun
+                    bullet = Projectile(player.rect.right, bullet_y)
                     projectiles.add(bullet)
                     all_sprites.add(bullet)
 
@@ -231,8 +258,9 @@ def main_game():
         if boss_spawned and boss and boss.alive():
             boss.update()
 
-        # Bullet hits enemy
-        for bullet in projectiles:
+        # Bullet hits enemy or boss
+        for bullet in projectiles.copy():
+            # First check regular enemies
             enemy_hit = pygame.sprite.spritecollideany(bullet, enemies)
             if enemy_hit:
                 enemy_hit.health -= bullet.damage
@@ -240,15 +268,19 @@ def main_game():
                 if enemy_hit.health <= 0:
                     enemy_hit.kill()
                     score += 1
+                continue  # Skip checking boss if bullet already hit enemy
 
+            # Then check boss
             if boss_spawned and boss and boss.alive():
                 if boss.rect.colliderect(bullet.rect):
                     boss.health -= bullet.damage
                     bullet.kill()
+                    print("Boss health:", boss.health)  # For debugging
                     if boss.health <= 0:
                         boss.kill()
                         game_over_screen(win=True)
                         return
+
 
         # Player collides with enemies
         enemy_hit = pygame.sprite.spritecollideany(player, enemies)
@@ -296,7 +328,7 @@ def main_game():
             pygame.time.set_timer(enemy_spawn_event, 0)
 
         # Drawing
-        screen.fill(WHITE)
+        screen.blit(background_img, (0, 0))
         all_sprites.draw(screen)
         draw_text(f"Score: {score}", 22, BLACK, 10, 10)
         draw_text(f"Health: {player.health}", 22, GREEN, 10, 40)
@@ -307,8 +339,9 @@ def main_game():
             draw_text(f"Level {level}", 48, BLACK, WIDTH // 2 - 60, HEIGHT // 2 - 40)
 
         # Controls info
-        draw_text("Use arrow keys to move and jump", 20, BLACK, WIDTH // 2 - 140, HEIGHT - 60)
-        draw_text("Press SPACE to shoot", 20, BLACK, WIDTH // 2 - 100, HEIGHT - 30)
+        draw_text("Use arrow keys to move and jump", 20, WHITE, WIDTH // 2 - 140, HEIGHT - 60)
+        draw_text("Press SPACE to shoot", 20, WHITE, WIDTH // 2 - 100, HEIGHT - 30)
+
 
         pygame.display.flip()
 
